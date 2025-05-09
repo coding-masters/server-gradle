@@ -30,7 +30,6 @@ public class S3Service {
         PutObjectRequest putObjectRequest = PutObjectRequest.builder()
             .bucket(bucketName)
             .key(fileName)
-            // 공개 접근 설정
             .contentType(multipartFile.getContentType())
             .build();
 

@@ -8,7 +8,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 import org.web3j.abi.FunctionEncoder;
 import org.web3j.abi.FunctionReturnDecoder;
 import org.web3j.abi.TypeReference;
@@ -23,44 +25,58 @@ import org.web3j.protocol.core.methods.request.Transaction;
 import org.web3j.protocol.core.methods.response.EthCall;
 import org.web3j.protocol.core.methods.response.EthSendTransaction;
 import org.web3j.tx.RawTransactionManager;
+import org.web3j.utils.Convert;
 
 @RequiredArgsConstructor
 @Service
+@Slf4j
 public class NftService {
 
     private final Web3j web3j;
     private final Credentials credentials;
     private final S3Service s3Service;
 
-    private final String contractAddress = "0x78c5B1577da951C984804f1a2aA0049fe23b2F29";
-    private static final int CHAIN_ID = 11155111;
+    private final String contractAddress = "0x04183d126577a039ea2abec488c7edeae8d2ae5d";
+    private static final long CHAIN_ID = 11155111L;
 
     // ------------------ 상태 변경 함수 ------------------
 
-    public String mintNft(NftRequestDto requestDto) throws Exception {
-        String imageUrl = s3Service.uploadFile(requestDto.getFile(), "nft");
+    public String mintNft(String name, String description, String toAddress, MultipartFile file) throws Exception {
+        String imageUrl = s3Service.uploadFile(file, "nft");
         Map<String, Object> metadata = new HashMap<>();
-        metadata.put("name", requestDto.getName());
-        metadata.put("description", requestDto.getDescription());
+        metadata.put("name", name);
+        metadata.put("description", description);
         metadata.put("image", imageUrl);
 
         String tokenURI = s3Service.uploadJson(metadata, "metadata"); // s3에 올리고 컨텐츠에 접근할 수 있는 tokenURI를 받음
 
         Function function = new Function(
             "mint",
-            Arrays.asList(new Address(requestDto.getToAddress()), new Utf8String(tokenURI)),
+            Arrays.asList(new Address(toAddress), new Utf8String(tokenURI)),
             Collections.emptyList()
         );
 
-        String encodedFunction = FunctionEncoder.encode(function);
-        BigInteger gasPrice = web3j.ethGasPrice().send().getGasPrice();
-        BigInteger gasLimit = BigInteger.valueOf(6721975);
+        log.info(function + "만듦");
 
+        String encodedFunction = FunctionEncoder.encode(function);
+        BigInteger gasPrice = Convert.toWei("1", Convert.Unit.GWEI).toBigInteger(); // 10 Gwei
+
+        BigInteger gasLimit = BigInteger.valueOf(6721975);
         RawTransactionManager txManager = new RawTransactionManager(web3j, credentials, CHAIN_ID);
+
+        log.info("[4] 트랜잭션 전송 시작 - to: {}, gasPrice: {}, gasLimit: {}", contractAddress, gasPrice, gasLimit);
 
         EthSendTransaction receipt = txManager.sendTransaction(
             gasPrice, gasLimit, contractAddress, encodedFunction, BigInteger.ZERO
         );
+
+        if (receipt.hasError()) {
+            log.error("⚠️ 트랜잭션 실패: {}", receipt.getError().getMessage());
+        }
+
+
+        log.info("[5] 트랜잭션 전송 완료 - txHash: {}", receipt.getTransactionHash());
+
         return receipt.getTransactionHash();
     }
 

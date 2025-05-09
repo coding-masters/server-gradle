@@ -10,21 +10,15 @@ spring:
     username: ${DB_USER_NAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
 
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
 
-  jpa:
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.MySQL8Dialect
-        show_sql: true
-        format_sql: true
-        use_sql_comments: true
-        hbm2ddl:
-          auto: update
-        default_batch_fetch_size: 1000
+
 web3:
   rpc-url: https://eth-sepolia.g.alchemy.com/v2/6EieI9rKyN-HYQ0wQXwnXwvgDn0Iq7dK
 

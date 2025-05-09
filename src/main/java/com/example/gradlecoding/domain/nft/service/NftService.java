@@ -1,6 +1,6 @@
 package com.example.gradlecoding.domain.nft.service;
 
-import com.example.gradlecoding.domain.nft.dto.request.NftRequestDto;
+import com.example.gradlecoding.domain.nft.dto.response.MintResponseDto;
 import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,7 +41,7 @@ public class NftService {
 
     // ------------------ 상태 변경 함수 ------------------
 
-    public String mintNft(String name, String description, String toAddress, MultipartFile file) throws Exception {
+    public MintResponseDto mintNft(String name, String description, String toAddress, MultipartFile file) throws Exception {
         String imageUrl = s3Service.uploadFile(file, "nft");
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("name", name);
@@ -74,11 +74,61 @@ public class NftService {
             log.error("⚠️ 트랜잭션 실패: {}", receipt.getError().getMessage());
         }
 
-
         log.info("[5] 트랜잭션 전송 완료 - txHash: {}", receipt.getTransactionHash());
+
+        BigInteger nextTokenId = getNextTokenId(); // 컨트랙트 호출
+        Long mintedTokenId = nextTokenId.subtract(BigInteger.ONE).longValue();
+
+        return new MintResponseDto(receipt.getTransactionHash(), mintedTokenId);
+    }
+
+    public BigInteger getNextTokenId() throws Exception {
+        Function function = new Function(
+            "nextTokenId",
+            Collections.emptyList(),
+            Collections.singletonList(new TypeReference<Uint256>() {})
+        );
+
+        String encodedFunction = FunctionEncoder.encode(function);
+
+        EthCall response = web3j.ethCall(
+            Transaction.createEthCallTransaction(credentials.getAddress(), contractAddress, encodedFunction),
+            org.web3j.protocol.core.DefaultBlockParameterName.LATEST
+        ).send();
+
+        List<Type> decoded = FunctionReturnDecoder.decode(response.getValue(), function.getOutputParameters());
+        return (BigInteger) decoded.get(0).getValue();
+    }
+
+    public String listForSale(BigInteger tokenId, BigInteger priceInWei) throws Exception {
+        Function function = new Function(
+            "listForSale",
+            Arrays.asList(new Uint256(tokenId), new Uint256(priceInWei)),
+            Collections.emptyList()
+        );
+
+        String encodedFunction = FunctionEncoder.encode(function);
+        BigInteger gasPrice = Convert.toWei("1", Convert.Unit.GWEI).toBigInteger(); // 1 Gwei
+        BigInteger gasLimit = BigInteger.valueOf(6721975);
+
+        RawTransactionManager txManager = new RawTransactionManager(web3j, credentials, CHAIN_ID);
+
+        log.info("[판매등록] 트랜잭션 전송 시작 - tokenId: {}, price: {} wei", tokenId, priceInWei);
+
+        EthSendTransaction receipt = txManager.sendTransaction(
+            gasPrice, gasLimit, contractAddress, encodedFunction, BigInteger.ZERO
+        );
+
+        if (receipt.hasError()) {
+            log.error("⚠️ 판매 등록 실패: {}", receipt.getError().getMessage());
+            throw new RuntimeException("판매 등록 실패");
+        }
+
+        log.info("[판매등록] 트랜잭션 전송 완료 - txHash: {}", receipt.getTransactionHash());
 
         return receipt.getTransactionHash();
     }
+
 
     public String buyNft(BigInteger tokenId, BigInteger priceInWei) throws Exception {
         Function function = new Function(

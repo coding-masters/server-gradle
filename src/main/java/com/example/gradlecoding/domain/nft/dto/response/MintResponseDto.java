@@ -15,7 +15,7 @@ public class MintResponseDto {
     private String title;
     private String txhash; // 트랜잭션 블록의 해시값.
     private Long tokenId; // tokenId #없이 저장. 프론트가 보여줄때만 #. API 요청도 다 #없이
-    private BigDecimal price; // eth -> 이건 status가 onsale일때만 값 있음
+    private String price; // eth -> 이건 status가 onsale일때만 값 있음
     private String type; // 문서로만
     private String seller; // 사람이름
     private String description;
@@ -29,7 +29,8 @@ public class MintResponseDto {
             .title(nft.getTitle())
             .txhash(nft.getTxhash())
             .tokenId(nft.getTokenId())
-            .price(nft.getPrice())
+            .price(nft.getPrice() == null ?
+             null : new BigDecimal(nft.getPrice().toString()).stripTrailingZeros().toPlainString())
             .type(nft.getType())
             .seller(nft.getSeller())
             .description(nft.getDescription())

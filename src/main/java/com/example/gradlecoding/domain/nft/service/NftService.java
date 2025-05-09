@@ -146,6 +146,9 @@ public class NftService {
         EthSendTransaction receipt = txManager.sendTransaction(
             gasPrice, gasLimit, contractAddress, encodedFunction, priceInWei
         );
+        if (receipt.hasError()) {
+            throw new RuntimeException("구매 트랜잭션 실패: " + receipt.getError().getMessage());
+        }
         return receipt.getTransactionHash();
     }
 

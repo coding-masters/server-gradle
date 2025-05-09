@@ -61,9 +61,9 @@ public class NftController {
 
     @PostMapping("/buy")
     public ApiResponse<?> buy(
-        @RequestParam BigInteger tokenId,
-        @RequestParam BigInteger priceInWei) throws Exception {
-        String tx = nftService.buyNft(tokenId, priceInWei);
+        @RequestParam("tokenId") @Schema(description = "구매할 NFT의 tokenId", example = "3") BigInteger tokenId,
+        @RequestParam("priceEth") @Schema(description = "지불할 가격 (wei 단위)", example = "1000000000000000") BigInteger priceWei) throws Exception {
+        String tx = nftService.buyNft(tokenId, priceWei);
         return ApiResponse.success(Status.CREATED.getCode(),
             Status.CREATED.getMessage(), tx);
     }
